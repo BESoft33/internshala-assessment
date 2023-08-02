@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Invoice, InvoiceDetails
 from .serializers import InvoiceSerializer, InvoiceDetailsSerializer
+from django.db import transaction
 
 
 class InvoiceView(APIView):
@@ -15,9 +16,14 @@ class InvoiceView(APIView):
     def post(self, request):
         serializer = InvoiceSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status.HTTP_200_OK)
+            with transaction.atomic():
+                details_data = request.data.get('details', {})
+                invoice = serializer.save()
+                invoice.__dict__['details'] = details_data
+                return Response(serializer.data, status.HTTP_201_CREATED)
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+
 
 
 class InvoiceItemView(APIView):
@@ -30,8 +36,6 @@ class InvoiceItemView(APIView):
         return status.HTTP_404_NOT_FOUND
 
 
-
-
 class InvoiceItemDetailsView(APIView):
     def get(self, request, pk):
         details = get_object_or_404(InvoiceDetails, id=pk)
@@ -40,8 +44,6 @@ class InvoiceItemDetailsView(APIView):
             return Response(serializer.data)
 
         return status.HTTP_404_NOT_FOUND
-
-
 
 
 class InvoiceDetailsView(APIView):
@@ -56,4 +58,6 @@ class InvoiceDetailsView(APIView):
             serializer.save()
             return Response(serializer.data, status.HTTP_200_OK)
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+
 
